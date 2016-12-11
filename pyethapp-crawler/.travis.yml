@@ -1,0 +1,38 @@
+language: python
+sudo: required
+dist: trusty
+python:
+- '2.7'
+before_install:
+- sudo add-apt-repository -y ppa:ethereum/ethereum
+- sudo apt-get update
+- sudo apt-get install -y solc
+install:
+- pip install -r requirements.txt
+- pip install coveralls readme_renderer
+script:
+- coverage run --source pyethapp setup.py test
+- python setup.py check --restructuredtext --strict
+after_success:
+- coveralls
+env:
+  global:
+    - secure: Flr9EhWiDRQnMDSswKZRDRqMtHtIt/TKSKQWieaJo7J9MIbUrFFthhKVcuZVUmff3N2UeNTfWmPWq8UbbWi5x0u4MkezBGwQVqjUTd0xE+ZjeqeQuD8TQD1nmzFkUKJ7hoItoceZNEk2Ajb7NTrt5ZNYXp0sjlYFn0iPlnFNZYM=
+    - secure: "YvRgLk6wJqWO1fOZzdosi3VBfqUUNTrwuTf6bcG8bSalv0omgRXiXtc98yXmGjPXSX/QQZK5Ykk7Yq6EMSrxSJ9Ys/0kuGvhrRjcwTSqLGgwa+gQL0tDhzfD8bDdw7jz/tq4/uJZNv9N4U5y1x3IcS4F6KpIR6nNozPb532FNQQ="
+notifications:
+  slack:
+    secure: MLpiCgdrAqs0GCTdf9zC84/ly93xxQSTcmY2guAHCMGp+DjaRk/fWIrBMPJVE/ZI7FYV6BcDX4pv5l2QUrmubdFpygayTz3V+/ELtabtFIO7MR9zExFhLUMaRP5+YDNJZJ9rA4TI8r00o4VQUM+tS12cR1NbzTIXMm2OMLC+2Uw=
+  webhooks:
+    - secure: "EClYtaJEPV4v77Qgubbj9eom73P3V44KV53V5gZSJL72ARQAIy3J1eUdH7XIFFkX5Of1mdnYUvBXFJe562TbpJrizwOu3vpkBtgLlpymSf5An49y+bb6ypnnP81rKz9Yode0dAcLrsGkAcRa6dn0GELzjaac+ZKD5i11rTrnI4s="
+deploy:
+  provider: pypi
+  user: ethereum_pypi_automated
+  password:
+    secure: NxQNT56QVXkgmDvnPFdtnVr0N0VRpkSTd5DBh1iiasf4pVessln0Uu8QxeQipeUpCKpB7+mCb4Bu2VFNQ7fN60M/wWENSQdl2gBz+GfOjt6TBPffUy1m6pNhtC3WCkqwOkLRe3KE0Dyy0wKqK3/QvyLwNZCoIUMk2CijvhS1UA0=
+  on:
+    tags: true
+    repo: ethereum/pyethapp
+    branch: develop
+  distributions: sdist bdist_wheel
+after_deploy:
+- ./.release_notify.sh

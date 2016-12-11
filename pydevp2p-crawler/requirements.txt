@@ -1,0 +1,11 @@
+pyelliptic
+wheel
+gevent>=1.1.0
+tinyrpc
+bitcoin
+ipaddress
+coverage
+tox
+secp256k1==0.12.1
+pycryptodome>=3.3.1
+rlp>=0.4.4

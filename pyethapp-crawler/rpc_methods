@@ -1,0 +1,62 @@
+Checklist for implemented JSON RPC methods
+
+[x] web3_sha3
+[x] web3_clientVersion
+[x] net_version
+[x] net_peerCount
+[x] net_listening
+[ ] eth_protocolVersion
+[x] eth_coinbase
+[x] eth_mining
+[x] eth_gasPrice
+[x] eth_accounts
+[x] eth_hashrate
+[x] eth_blockNumber
+[x] eth_getBalance
+[x] eth_getStorageAt
+[x] eth_getTransactionCount
+[x] eth_getBlockTransactionCountByHash
+[x] eth_getBlockTransactionCountByNumber
+[x] eth_getUncleCountByBlockHash
+[x] eth_getUncleCountByBlockNumber
+[x] eth_getCode
+[ ] eth_sign
+[x] eth_syncing
+[x] eth_sendTransaction
+[x] eth_call
+[ ] eth_estimateGas
+[x] eth_getBlockByHash
+[x] eth_getBlockByNumber
+[x] eth_getTransactionByHash
+[x] eth_getTransactionByBlockHashAndIndex
+[x] eth_getTransactionByBlockNumberAndIndex
+[ ] eth_getTransactionReceipt
+[x] eth_getUncleByBlockHashAndIndex
+[x] eth_getUncleByBlockNumberAndIndex
+[x] eth_getCompilers
+[x] eth_compileLLL
+[x] eth_compileSolidity
+[x] eth_compileSerpent
+[x] eth_newFilter
+[x] eth_newBlockFilter
+[ ] eth_newPendingTransactionFilter
+[x] eth_uninstallFilter
+[x] eth_getFilterChanges
+[x] eth_getFilterLogs
+[ ] eth_getLogs
+[x] eth_getWork
+[x] eth_submitWork
+[x] db_putString
+[x] db_getString
+[x] db_putHex
+[x] db_getHex
+[ ] shh_post
+[ ] shh_version
+[ ] shh_newIdentity
+[ ] shh_hasIdentity
+[ ] shh_newGroup
+[ ] shh_addToGroup
+[ ] shh_newFilter
+[ ] shh_uninstallFilter
+[ ] shh_getFilterChanges
+[ ] shh_getMessages
