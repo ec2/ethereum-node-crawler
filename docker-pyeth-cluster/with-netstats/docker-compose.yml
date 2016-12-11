@@ -49,7 +49,7 @@ services:
     crawler:
       networks:
           ethereum:
-      build: pyethapp-crawler
+      image: pyethapp-crawler
       container_name: pyethapp-crawler
       links: 
         - statsmon
