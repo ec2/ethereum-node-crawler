@@ -1,4 +1,4 @@
-# build with `docker build -t pyethapp-crawler .`
+# build with `docker build -t pyethapp-crawler ./pyethapp-crawler`
 FROM python:2.7.11
 
 RUN apt-get update

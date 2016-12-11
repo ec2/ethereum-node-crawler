@@ -1,4 +1,4 @@
-# build with `docker build -t pyethapp .`
+# build with `docker build -t pyethapp ./pyethapp`
 FROM python:2.7.11
 
 RUN pip install --upgrade pip
