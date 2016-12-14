@@ -3,6 +3,7 @@ import gevent
 import socket
 import atexit
 import time
+import datetime
 from gevent.server import StreamServer
 from gevent.socket import create_connection, timeout
 from service import WiredService
@@ -172,8 +173,10 @@ class PeerManager(WiredService):
     def _discovery_loop(self):
         log.info('waiting for bootstrap')
         gevent.sleep(self.discovery_delay)
-        file_obj = open("nodes.txt", "w")
-        file_obj2 = open("routing-table-size.txt", "w")
+        result_dir = "/apps/ethereum-node-crawler/pyethapp-crawler/results"
+        current_time = "{:%y%m%d-%H%M%S}".format(datetime.datetime.now())
+        file_obj = open("{}/{}_nodes.csv".format(result_dir, current_time), "w")
+        file_obj2 = open("{}/{}_routing-table-size.csv".format(result_dir, current_time), "w")
         all_nodes = set([])
         while not self.is_stopped:
             num_peers, min_peers = self.num_peers(), self.config['p2p']['min_peers']
@@ -183,7 +186,7 @@ class PeerManager(WiredService):
                 # TODO: Is this the correct thing to do here?
                 log.error("Discovery service not available.")
                 break
-#	    file_obj = open("IPs.txt", "a")
+#	    file_obj = open("results/IPs.txt", "a")
 #	    while(1):
 #	   	nodeid = kademlia.random_nodeid()
 #	   	kademlia_proto.find_node(nodeid)
