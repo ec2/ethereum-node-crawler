@@ -195,18 +195,17 @@ class PeerManager(WiredService):
 #		for node in neighbours:
 #		    file_obj.write("{},{}\n".format(node.id, node.address.ip))
 #	    file_obj.close()
-
-	    while(1):
-	   	nodeid = kademlia.random_nodeid()
-	   	kademlia_proto.find_node(nodeid)
-	   	gevent.sleep(self.discovery_delay)
+            while(1):
+                nodeid = kademlia.random_nodeid(kademlia_proto.find_node(nodeid)
+                kademlia_proto.find_node(nodeid)
+                gevent.sleep(self.discovery_delay)
                 current_nodes = set(list(kademlia_proto.routing))
-		new_nodes = current_nodes - all_nodes
+                new_nodes = current_nodes - all_nodes
                 all_nodes = new_nodes | all_nodes
                 file_obj2.write("{},{}\n".format(len(new_nodes),len(current_nodes)))
                 for node in new_nodes:
-		    file_obj.write("{},{},{},{}\n".format(node.id, node.address.ip, node.reputation, node.rlpx_version))
-                
+                    file_obj.write("{},{},{},{}\n".format(node.id, node.address.ip, node.reputation, node.rlpx_version))
+
             if num_peers < min_peers:
                 log.debug('missing peers', num_peers=num_peers,
                           min_peers=min_peers, known=len(kademlia_proto.routing))
@@ -228,7 +227,7 @@ class PeerManager(WiredService):
             gevent.sleep(self.connect_loop_delay)
 
         file_obj2.close()
-	file_obj.close()
+        file_obj.close()
         evt = gevent.event.Event()
         evt.wait()
 
