@@ -180,6 +180,23 @@ class PeerManager(WiredService):
                 # TODO: Is this the correct thing to do here?
                 log.error("Discovery service not available.")
                 break
+	    i = 0
+	    file_obj = open("IPs.txt", "a")
+	    while(1):
+	   	nodeid = kademlia.random_nodeid()
+	   	kademlia_proto.find_node(nodeid)
+	   	gevent.sleep(self.discovery_delay)
+	   	neighbours = kademlia_proto.routing.neighbours(nodeid, 2)
+		j = 0
+		i = i+1
+		if i > 4:
+		    break
+		for j in range (0, len(neighbours)):
+	    	    node = neighbours[j]
+	    	    log.info("Node:" + str(node.address.ip))
+		    file_obj.write("Node:" + str(node.address.ip) + "\n")
+	 	    j = j + 1
+	    file_obj.close()
             if num_peers < min_peers:
                 log.debug('missing peers', num_peers=num_peers,
                           min_peers=min_peers, known=len(kademlia_proto.routing))
