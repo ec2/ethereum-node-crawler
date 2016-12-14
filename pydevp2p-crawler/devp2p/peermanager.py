@@ -196,7 +196,7 @@ class PeerManager(WiredService):
 #		    file_obj.write("{},{}\n".format(node.id, node.address.ip))
 #	    file_obj.close()
             while(1):
-                nodeid = kademlia.random_nodeid(kademlia_proto.find_node(nodeid)
+                nodeid = kademlia.random_nodeid(kademlia_proto.find_node(nodeid))
                 kademlia_proto.find_node(nodeid)
                 gevent.sleep(self.discovery_delay)
                 current_nodes = set(list(kademlia_proto.routing))
