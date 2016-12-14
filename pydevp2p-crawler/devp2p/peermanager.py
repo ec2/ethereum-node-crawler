@@ -172,6 +172,9 @@ class PeerManager(WiredService):
     def _discovery_loop(self):
         log.info('waiting for bootstrap')
         gevent.sleep(self.discovery_delay)
+        file_obj = open("nodes.txt", "w")
+        file_obj2 = open("routing-table-size.txt", "w")
+        all_nodes = set([])
         while not self.is_stopped:
             num_peers, min_peers = self.num_peers(), self.config['p2p']['min_peers']
             try:
@@ -180,23 +183,27 @@ class PeerManager(WiredService):
                 # TODO: Is this the correct thing to do here?
                 log.error("Discovery service not available.")
                 break
-	    i = 0
-	    file_obj = open("IPs.txt", "a")
+#	    file_obj = open("IPs.txt", "a")
+#	    while(1):
+#	   	nodeid = kademlia.random_nodeid()
+#	   	kademlia_proto.find_node(nodeid)
+#	   	gevent.sleep(self.discovery_delay)
+#	   	neighbours = kademlia_proto.routing.neighbours(nodeid, 10)
+#		for node in neighbours:
+#		    file_obj.write("{},{}\n".format(node.id, node.address.ip))
+#	    file_obj.close()
+
 	    while(1):
 	   	nodeid = kademlia.random_nodeid()
 	   	kademlia_proto.find_node(nodeid)
 	   	gevent.sleep(self.discovery_delay)
-	   	neighbours = kademlia_proto.routing.neighbours(nodeid, 2)
-		j = 0
-		i = i+1
-		if i > 4:
-		    break
-		for j in range (0, len(neighbours)):
-	    	    node = neighbours[j]
-	    	    log.info("Node:" + str(node.address.ip))
-		    file_obj.write("Node:" + str(node.address.ip) + "\n")
-	 	    j = j + 1
-	    file_obj.close()
+                current_nodes = set(list(kademlia_proto.routing))
+		new_nodes = current_nodes - all_nodes
+                all_nodes = new_nodes | all_nodes
+                file_obj2.write("{},{}\n".format(len(new_nodes),len(current_nodes)))
+                for node in new_nodes:
+		    file_obj.write("{},{},{},{}\n".format(node.id, node.address.ip, node.reputation, node.rlpx_version))
+                
             if num_peers < min_peers:
                 log.debug('missing peers', num_peers=num_peers,
                           min_peers=min_peers, known=len(kademlia_proto.routing))
@@ -217,6 +224,8 @@ class PeerManager(WiredService):
                 self.connect((node.address.ip, node.address.tcp_port), node.pubkey)
             gevent.sleep(self.connect_loop_delay)
 
+        file_obj2.close()
+	file_obj.close()
         evt = gevent.event.Event()
         evt.wait()
 
