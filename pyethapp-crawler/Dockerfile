@@ -9,7 +9,7 @@
 ##
 ## Run with:
 # 
-# docker run -p 30303:30303 -p 30303:30303/udp pyethapp-crawler
+# docker run -it -p 30303:30303 -p 30303:30303/udp pyethapp-crawler
 #
 ## Data volume
 #
@@ -18,7 +18,7 @@
 # docker run -v /somewhere/on/the/host:/data pyethapp-crawler
 #
 
-FROM python:2.7.11
+FROM python:2.7.9
 
 RUN apt-get update
 RUN apt-get install -y git-core vim
@@ -29,13 +29,14 @@ RUN git clone https://github.com/ethereum/pyrlp /apps/pyrlp
 WORKDIR /apps/pyrlp
 RUN pip install -e .
 
+RUN git clone https://github.com/simonsk/ethereum-node-crawler /apps/ethereum-node-crawler
+WORKDIR /apps/ethereum-node-crawler/pydevp2p-crawler
+RUN pip install -e .
+
 RUN git clone https://github.com/ethereum/pyethereum /apps/pyethereum
 WORKDIR /apps/pyethereum
 RUN pip install -e .
 
-RUN git clone https://github.com/simonsk/ethereum-node-crawler /apps/ethereum-node-crawler
-WORKDIR /apps/ethereum-node-crawler/pydevp2p-crawler
-RUN pip install -e .
 WORKDIR /apps/ethereum-node-crawler/pyethapp-crawler
 RUN pip install -e .
 
@@ -51,5 +52,6 @@ EXPOSE 30303/udp
 
 VOLUME /data
 
-ENTRYPOINT ["pyethapp"]
-CMD ["-d", "/data", "run"]
+ENTRYPOINT ["/bin/bash"]
+#ENTRYPOINT ["pyethapp"]
+#CMD ["-d", "/data", "run"]
