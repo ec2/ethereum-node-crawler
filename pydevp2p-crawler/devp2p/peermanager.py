@@ -173,12 +173,13 @@ class PeerManager(WiredService):
     def _discovery_loop(self):
         log.info('waiting for bootstrap')
         gevent.sleep(self.discovery_delay)
-        result_dir = "/apps/ethereum-node-crawler/pyethapp-crawler/results"
-        current_time = "{:%y%m%d-%H%M%S}".format(datetime.datetime.now())
-        file_obj = open("{}/{}_peers.txt".format(result_dir, current_time), "w")
+#        result_dir = "/apps/ethereum-node-crawler/pyethapp-crawler/results"
+#        current_time = "{:%y%m%d-%H%M%S}".format(datetime.datetime.now())
+#        file_obj = open("{}/{}_peers.txt".format(result_dir, current_time), "w")
         while not self.is_stopped:
             num_peers, min_peers = self.num_peers(), self.config['p2p']['min_peers']
-            file_obj.write("num_peers: {}\n".format(num_peers))
+#            file_obj.write("num_peers: {}\n".format(num_peers))
+            log.info("num_peers: {}".format(num_peers))
             try:
                 kademlia_proto = self.app.services.discovery.protocol.kademlia
             except AttributeError:
@@ -203,10 +204,12 @@ class PeerManager(WiredService):
                 if node.pubkey in [p.remote_pubkey for p in self.peers]:
                     continue
                 self.connect((node.address.ip, node.address.tcp_port), node.pubkey)
-                file_obj.write("num_peers: {}\n".format(self.num_peers()))
-            file_obj.write("\n")
+#                file_obj.write("num_peers: {}\n".format(self.num_peers()))
+                log.info("num_peers: {}".format(self.num_peers()))
+#            file_obj.write("\n")
+            log.info("")
             gevent.sleep(self.connect_loop_delay)
-        file_obj.close()
+#        file_obj.close()
 #        while not self.is_stopped:
 #            try:
 #                kademlia_proto = self.app.services.discovery.protocol.kademlia
