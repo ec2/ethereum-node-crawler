@@ -9,7 +9,7 @@
 ##
 ## Run with:
 # 
-# docker run -it -p 30303:30303 -p 30303:30303/udp pyethapp-crawler
+# docker run -it --name pyethapp-crawler -p 30303:30303 -p 30303:30303/udp pyethapp-crawler
 #
 ## Data volume
 #
@@ -40,6 +40,8 @@ RUN pip install -e .
 WORKDIR /apps/ethereum-node-crawler/pyethapp-crawler
 RUN pip install -e .
 
+WORKDIR /
+
 # Fix debian's ridiculous gevent-breaking constant removal
 # (e.g. https://github.com/hypothesis/h/issues/1704#issuecomment-63893295):
 RUN sed -i 's/PROTOCOL_SSLv3/PROTOCOL_SSLv23/g' /usr/local/lib/python2.7/site-packages/gevent/ssl.py
@@ -51,5 +53,3 @@ EXPOSE 30303
 EXPOSE 30303/udp
 
 VOLUME /data
-
-ENTRYPOINT ["/bin/bash"]
