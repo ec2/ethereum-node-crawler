@@ -173,31 +173,65 @@ class PeerManager(WiredService):
     def _discovery_loop(self):
         log.info('waiting for bootstrap')
         gevent.sleep(self.discovery_delay)
+        result_dir = "/apps/ethereum-node-crawler/pyethapp-crawler/results"
+        current_time = "{:%y%m%d-%H%M%S}".format(datetime.datetime.now())
+        file_obj = open("{}/{}_peers.txt".format(result_dir, current_time), "w")
         while not self.is_stopped:
+            num_peers, min_peers = self.num_peers(), self.config['p2p']['min_peers']
+            file_obj.write("num_peers: {}\n".format(num_peers))
             try:
                 kademlia_proto = self.app.services.discovery.protocol.kademlia
             except AttributeError:
                 # TODO: Is this the correct thing to do here?
                 log.error("Discovery service not available.")
                 break
-            result_dir = "/apps/ethereum-node-crawler/pyethapp-crawler/results"
-            current_time = "{:%y%m%d-%H%M%S}".format(datetime.datetime.now())
-            file_obj = open("{}/{}_nodes.csv".format(result_dir, current_time), "w")
-            file_obj2 = open("{}/{}_routing-table-size.csv".format(result_dir, current_time), "w")
-            all_nodes = set([])
-            while(1):
+            if num_peers < min_peers:
+                log.debug('missing peers', num_peers=num_peers,
+                          min_peers=min_peers, known=len(kademlia_proto.routing))
                 nodeid = kademlia.random_nodeid()
-                kademlia_proto.find_node(nodeid)
-                gevent.sleep(self.discovery_delay)
-                current_nodes = set(list(kademlia_proto.routing))
-                new_nodes = current_nodes - all_nodes
-                all_nodes = new_nodes | all_nodes
-                file_obj2.write("{},{}\n".format(len(new_nodes),len(current_nodes)))
-                for node in new_nodes:
-                    file_obj.write("{},{},{},{}\n".format(node.id, node.address.ip, node.reputation, node.rlpx_version))
-            file_obj2.close()
-            file_obj.close()
+                kademlia_proto.find_node(nodeid)  # fixme, should be a task
+                gevent.sleep(self.discovery_delay)  # wait for results
+                neighbours = kademlia_proto.routing.neighbours(nodeid, 2)
+                if not neighbours:
+                    gevent.sleep(self.connect_loop_delay)
+                    continue
+                node = random.choice(neighbours)
+                log.debug('connecting random', node=node)
+                local_pubkey = crypto.privtopub(self.config['node']['privkey_hex'].decode('hex'))
+                if node.pubkey == local_pubkey:
+                    continue
+                if node.pubkey in [p.remote_pubkey for p in self.peers]:
+                    continue
+                self.connect((node.address.ip, node.address.tcp_port), node.pubkey)
+                file_obj.write("num_peers: {}\n".format(self.num_peers()))
+            file_obj.write("\n")
             gevent.sleep(self.connect_loop_delay)
+        file_obj.close()
+#        while not self.is_stopped:
+#            try:
+#                kademlia_proto = self.app.services.discovery.protocol.kademlia
+#            except AttributeError:
+#                # TODO: Is this the correct thing to do here?
+#                log.error("Discovery service not available.")
+#                break
+#            result_dir = "/apps/ethereum-node-crawler/pyethapp-crawler/results"
+#            current_time = "{:%y%m%d-%H%M%S}".format(datetime.datetime.now())
+#            file_obj = open("{}/{}_nodes.csv".format(result_dir, current_time), "w")
+#            file_obj2 = open("{}/{}_routing-table-size.csv".format(result_dir, current_time), "w")
+#            all_nodes = set([])
+#            while(1):
+#                nodeid = kademlia.random_nodeid()
+#                kademlia_proto.find_node(nodeid)
+#                gevent.sleep(self.discovery_delay)
+#                current_nodes = set(list(kademlia_proto.routing))
+#                new_nodes = current_nodes - all_nodes
+#                all_nodes = new_nodes | all_nodes
+#                file_obj2.write("{},{}\n".format(len(new_nodes),len(current_nodes)))
+#                for node in new_nodes:
+#                    file_obj.write("{},{},{},{}\n".format(node.id, node.address.ip, node.reputation, node.rlpx_version))
+#            file_obj2.close()
+#            file_obj.close()
+#            gevent.sleep(self.connect_loop_delay)
 
         evt = gevent.event.Event()
         evt.wait()
