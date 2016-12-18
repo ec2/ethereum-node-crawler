@@ -517,7 +517,7 @@ class NodeDiscovery(BaseService, DiscoveryProtocolTransport):
     server = None  # will be set to DatagramServer
     default_config = dict(
         discovery=dict(
-            listen_port=8998,
+            listen_port=30303,
             listen_host='0.0.0.0',
         ),
         node=dict(privkey_hex=''))

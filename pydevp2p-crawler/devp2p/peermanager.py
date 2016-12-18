@@ -40,7 +40,7 @@ class PeerManager(WiredService):
     default_config = dict(p2p=dict(bootstrap_nodes=[],
                                    min_peers=5,
                                    max_peers=10,
-                                   listen_port=8998,
+                                   listen_port=30303,
                                    listen_host='0.0.0.0'),
                           log_disconnects=False,
                           node=dict(privkey_hex=''))
@@ -213,6 +213,7 @@ class PeerManager(WiredService):
                 self.connect((node.address.ip, node.address.tcp_port), node.pubkey)
             gevent.sleep(self.connect_loop_delay)
             size = len(kademlia_proto.routing)
+            log.info('neighbours: {}'.format(size))
             if size > 10:
                 break
         log.info('more than 10 neighbours. routing table ready. quitting normal discovery')
