@@ -4,6 +4,7 @@ import socket
 import atexit
 import time
 import datetime
+import threading
 from gevent.server import StreamServer
 from gevent.socket import create_connection, timeout
 from service import WiredService
@@ -49,6 +50,8 @@ class PeerManager(WiredService):
     connect_timeout = 2.
     connect_loop_delay = 0.1
     discovery_delay = 0.5
+    routing_refresh_timer = 600
+    t = None
 
     def __init__(self, app):
         log.info('PeerManager init')
@@ -183,57 +186,86 @@ class PeerManager(WiredService):
             log.error('stopped peers in peers list', inlist=len(ps), active=len(aps))
         return len(aps)
 
+    def save_routing_table(self):
+        try:
+            kademlia_proto = self.app.services.discovery.protocol.kademlia
+            nodes = set(kademlia_proto.routing)
+            current_time = "{:%y%m%d-%H%M%S}".format(datetime.datetime.now())
+            min_node = 1500
+            if len(nodes) > min_node:
+                log.info('saving routing table', timestamp=current_time)
+                file_obj = open("/results/routing-table_{}.csv".format(current_time), "w")
+                for node in nodes:
+                    file_obj.write("{},{},{},{},{},{}\n".format(node.pubkey.encode('hex'), node.address.ip, node.address.tcp_port, node.address.udp_port, node.reputation, node.rlpx_version))
+                file_obj.close()
+            else:
+                log.info('less than {} nodes'.format(min_node), timestamp=current_time)
+
+            self.t = threading.Timer(self.routing_refresh_timer, self.save_routing_table)
+            self.t.start()
+        except AttributeError:
+            # TODO: Is this the correct thing to do here?
+            log.error("Discovery service not available.")
+
     def _discovery_loop(self):
         log.info('waiting for bootstrap')
         gevent.sleep(self.discovery_delay)
+
+        self.save_routing_table()
+
         while not self.is_stopped:
-            num_peers, min_peers = self.num_peers(), self.config['p2p']['min_peers']
             try:
                 kademlia_proto = self.app.services.discovery.protocol.kademlia
             except AttributeError:
                 # TODO: Is this the correct thing to do here?
                 log.error("Discovery service not available.")
                 break
-            if num_peers < min_peers:
-                log.debug('missing peers', num_peers=num_peers,
-                          min_peers=min_peers, known=len(kademlia_proto.routing))
-                nodeid = kademlia.random_nodeid()
-                kademlia_proto.find_node(nodeid)  # fixme, should be a task
-                gevent.sleep(self.discovery_delay)  # wait for results
-                neighbours = kademlia_proto.routing.neighbours(nodeid, 2)
-                if not neighbours:
-                    gevent.sleep(self.connect_loop_delay)
-                    continue
-                node = random.choice(neighbours)
-                log.debug('connecting random', node=node)
-                local_pubkey = crypto.privtopub(self.config['node']['privkey_hex'].decode('hex'))
-                if node.pubkey == local_pubkey:
-                    continue
-                if node.pubkey in [p.remote_pubkey for p in self.peers]:
-                    continue
-                self.connect((node.address.ip, node.address.tcp_port), node.pubkey)
-            gevent.sleep(self.connect_loop_delay)
-            size = len(kademlia_proto.routing)
-            log.info('neighbours: {}'.format(size))
-            if size > 10:
-                break
-        log.info('more than 10 neighbours. routing table ready. quitting normal discovery')
-        log.info('peer: {}'.format(self.num_peers()))
-        greenlets = []
-        for node in kademlia_proto.routing:
-            if node.pubkey == local_pubkey:
-                continue
-            if node.pubkey in [p.remote_pubkey for p in self.peers]:
-                continue
-            greenlets.append(gevent.spawn(self.connect, (node.address.ip, node.address.tcp_port), node.pubkey))
-        gevent.joinall(greenlets)
-        log.info('peer: {}'.format(self.num_peers()))
+            nodeid = kademlia.random_nodeid()
+            kademlia_proto.find_node(nodeid)
+            gevent.sleep(self.discovery_delay)
+            log.info('test!!!!', table_size=len(kademlia_proto.routing))
+#            num_peers, min_peers = self.num_peers(), self.config['p2p']['min_peers']
+#            if num_peers < min_peers:
+#                log.debug('missing peers', num_peers=num_peers,
+#                          min_peers=min_peers, known=len(kademlia_proto.routing))
+#                nodeid = kademlia.random_nodeid()
+#                kademlia_proto.find_node(nodeid)  # fixme, should be a task
+#                gevent.sleep(self.discovery_delay)  # wait for results
+#                neighbours = kademlia_proto.routing.neighbours(nodeid, 2)
+#                if not neighbours:
+#                    gevent.sleep(self.connect_loop_delay)
+#                    continue
+#                node = random.choice(neighbours)
+#                log.debug('connecting random', node=node)
+#                local_pubkey = crypto.privtopub(self.config['node']['privkey_hex'].decode('hex'))
+#                if node.pubkey == local_pubkey:
+#                    continue
+#                if node.pubkey in [p.remote_pubkey for p in self.peers]:
+#                    continue
+#                self.connect((node.address.ip, node.address.tcp_port), node.pubkey)
+#            gevent.sleep(self.connect_loop_delay)
+#            size = len(kademlia_proto.routing)
+#            log.info('neighbours: {}'.format(size))
+#            if size > 10:
+#                break
+#        log.info('more than 10 neighbours. routing table ready. quitting normal discovery')
+#        log.info('peer: {}'.format(self.num_peers()))
+#        greenlets = []
+#        for node in kademlia_proto.routing:
+#            if node.pubkey == local_pubkey:
+#                continue
+#            if node.pubkey in [p.remote_pubkey for p in self.peers]:
+#                continue
+#            greenlets.append(gevent.spawn(self.connect, (node.address.ip, node.address.tcp_port), node.pubkey))
+#        gevent.joinall(greenlets)
+#        log.info('peer: {}'.format(self.num_peers()))
         evt = gevent.event.Event()
         evt.wait()
 
     def stop(self):
         log.info('stopping peermanager')
         self.server.stop()
+        self.t.cancel()
         for peer in self.peers:
             peer.stop()
         super(PeerManager, self).stop()
