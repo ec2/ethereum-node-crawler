@@ -10,7 +10,10 @@ log = get_logger('app')
 class BaseApp(object):
 
     default_config = dict(client_version_string='pydevp2p {}'.format(__version__),
-                          deactivated_services=[])
+                          deactivated_services=[],
+                          result_dir="",
+                          prev_routing_table="",
+                          prev_peers="")
 
     def __init__(self, config=default_config):
         self.config = utils.update_config_with_defaults(config, self.default_config)
