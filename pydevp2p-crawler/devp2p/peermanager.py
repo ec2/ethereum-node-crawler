@@ -240,7 +240,7 @@ class PeerManager(WiredService):
             gevent.joinall(greenlets)
             gevent.sleep(self.connect_loop_delay)
 
-#            self.save_peers()
+            self.save_peers()
 
             self.t = threading.Timer(self.routing_refresh_timer, self.save_data)
             self.t.start()
@@ -254,10 +254,13 @@ class PeerManager(WiredService):
         log.info('saving peers', file=filename, timestamp=current_time)
         file_obj = open(filename, "w")
         for p in self.peers:
-            ip, tcp_port = p.ip_port
-            p2p_proto = p.protocols.values()[0]
-            p2p_proto_monitor = p2p_proto.monitor
-            file_obj.write("{},{},{},{},{},{},{},{}\n".format(p.remote_pubkey.encode('hex'), ip, tcp_port, p.remote_client_version, p2p_proto_monitor.last_request, p2p_proto_monitor.last_response, p2p_proto_monitor.latency(), p2p_proto.version))
+            try:
+                ip, tcp_port = p.ip_port
+                p2p_proto = p.protocols.values()[0]
+                p2p_proto_monitor = p2p_proto.monitor
+                file_obj.write("{},{},{},{},{},{},{},{}\n".format(p.remote_pubkey.encode('hex'), ip, tcp_port, p.remote_client_version, p2p_proto_monitor.last_request, p2p_proto_monitor.last_response, p2p_proto_monitor.latency(), p2p_proto.version))
+            except:
+                continue 
         file_obj.close()
 
     def _discovery_loop(self):
