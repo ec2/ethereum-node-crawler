@@ -4,6 +4,8 @@ import socket
 import atexit
 import time
 import datetime
+import threading
+import csv
 from gevent.server import StreamServer
 from gevent.socket import create_connection, timeout
 from service import WiredService
@@ -13,7 +15,7 @@ import kademlia
 from peer import Peer
 import crypto
 import utils
-
+from devp2p import discovery
 import slogging
 log = slogging.get_logger('p2p.peermgr')
 
@@ -39,8 +41,8 @@ class PeerManager(WiredService):
     required_services = []
     wire_protocol = P2PProtocol
     default_config = dict(p2p=dict(bootstrap_nodes=[],
-                                   min_peers=5,
-                                   max_peers=10,
+                                   min_peers=10000,
+                                   max_peers=10000,
                                    listen_port=30303,
                                    listen_host='0.0.0.0'),
                           log_disconnects=False,
@@ -49,12 +51,20 @@ class PeerManager(WiredService):
     connect_timeout = 2.
     connect_loop_delay = 0.1
     discovery_delay = 0.5
+    routing_refresh_timer = 600
+    t = None
+    result_dir = "/results"
+    prev_routing_table = "routing-table_170107-110303.csv"
+    prev_peers = ""
 
     def __init__(self, app):
         log.info('PeerManager init')
         WiredService.__init__(self, app)
         self.peers = []
         self.errors = PeerErrors() if self.config['log_disconnects'] else PeerErrorsBase()
+        self.result_dir = self.config["result_dir"] if self.config["result_dir"] != "" else self.result_dir
+        self.prev_routing_table = self.config["prev_routing_table"] if self.config["prev_routing_table"] != "" else self.prev_routing_table
+        self.prev_peers = self.config["prev_peers"] if self.config["prev_peers"] != "" else self.prev_peers
 
         # setup nodeid based on privkey
         if 'id' not in self.config['p2p']:
@@ -67,10 +77,10 @@ class PeerManager(WiredService):
     def on_hello_received(self, proto, version, client_version_string, capabilities,
                           listen_port, remote_pubkey):
         log.debug('hello_received', peer=proto.peer, num_peers=len(self.peers))
-        if len(self.peers) > self.config['p2p']['max_peers']:
-            log.debug('too many peers', max=self.config['p2p']['max_peers'])
-            proto.send_disconnect(proto.disconnect.reason.too_many_peers)
-            return False
+#        if len(self.peers) > self.config['p2p']['max_peers']:
+#            log.debug('too many peers', max=self.config['p2p']['max_peers'])
+#            proto.send_disconnect(proto.disconnect.reason.too_many_peers)
+#            return False
         if remote_pubkey in [p.remote_pubkey for p in self.peers if p != proto.peer]:
             log.debug('connected to that node already')
             proto.send_disconnect(proto.disconnect.reason.useless_peer)
@@ -183,57 +193,104 @@ class PeerManager(WiredService):
             log.error('stopped peers in peers list', inlist=len(ps), active=len(aps))
         return len(aps)
 
+    def load_routing_table(self):
+        try:
+            routing = self.app.services.discovery.protocol.kademlia.routing
+            current_time = "{:%y%m%d-%H%M%S}".format(datetime.datetime.now())
+            filename = "{}/{}".format(self.result_dir, self.prev_routing_table)
+            log.info('loading previous routing table', file=filename, timestamp=current_time)
+            with open(filename, "r") as file_obj:
+                csvfile = csv.reader(file_obj, delimiter=',')
+                for row in csvfile:
+                    pubkey = row[0].decode('hex')
+                    ip = row[1]
+                    tcp_port = int(row[2])
+                    udp_port = int(row[3])
+                    reputation = row[4]
+                    rlpx_version = row[5]
+
+                    address = discovery.Address(ip, udp_port, tcp_port=tcp_port)
+                    node = discovery.Node(pubkey, address=address)
+                    node.reputation = reputation
+                    node.rlpx_version = rlpx_version
+                    routing.add_node(node)
+            log.info('previous routing table loaded', size=len(routing))
+
+        except AttributeError:
+            # TODO: Is this the correct thing to do here?
+            log.error("Discovery service not available. Failed to load routing table.")
+
+    def save_data(self):
+        try:
+            kademlia_proto = self.app.services.discovery.protocol.kademlia
+            nodes = set(kademlia_proto.routing)
+            current_time = "{:%y%m%d-%H%M%S}".format(datetime.datetime.now())
+            filename = "{}/routing-table_{}.csv".format(self.result_dir, current_time)
+            log.info('saving routing table', file=filename, timestamp=current_time)
+            file_obj = open(filename, "w")
+            for node in nodes:
+                file_obj.write("{},{},{},{},{},{}\n".format(node.pubkey.encode('hex'), node.address.ip, node.address.tcp_port, node.address.udp_port, node.reputation, node.rlpx_version))
+            file_obj.close()
+
+            greenlets = []
+            for node in nodes:
+                if node.pubkey in [p.remote_pubkey for p in self.peers]:
+                    continue
+                greenlets.append(gevent.spawn(self.connect, (node.address.ip, node.address.tcp_port), node.pubkey))
+            gevent.joinall(greenlets)
+            gevent.sleep(self.connect_loop_delay)
+
+#            self.save_peers()
+
+            self.t = threading.Timer(self.routing_refresh_timer, self.save_data)
+            self.t.start()
+        except AttributeError:
+            # TODO: Is this the correct thing to do here?
+            log.error("Discovery service not available. Failed to save routing table.")
+
+    def save_peers(self):
+        current_time = "{:%y%m%d-%H%M%S}".format(datetime.datetime.now())
+        filename = "{}/peers_{}.csv".format(self.result_dir, current_time)
+        log.info('saving peers', file=filename, timestamp=current_time)
+        file_obj = open(filename, "w")
+        for p in self.peers:
+            ip, tcp_port = p.ip_port
+            p2p_proto = p.protocols.values()[0]
+            p2p_proto_monitor = p2p_proto.monitor
+            file_obj.write("{},{},{},{},{},{},{},{}\n".format(p.remote_pubkey.encode('hex'), ip, tcp_port, p.remote_client_version, p2p_proto_monitor.last_request, p2p_proto_monitor.last_response, p2p_proto_monitor.latency(), p2p_proto.version))
+        file_obj.close()
+
     def _discovery_loop(self):
+        self.load_routing_table()
         log.info('waiting for bootstrap')
         gevent.sleep(self.discovery_delay)
+
+        self.save_data()
+
+        nodes = set([])
         while not self.is_stopped:
-            num_peers, min_peers = self.num_peers(), self.config['p2p']['min_peers']
             try:
                 kademlia_proto = self.app.services.discovery.protocol.kademlia
             except AttributeError:
                 # TODO: Is this the correct thing to do here?
                 log.error("Discovery service not available.")
                 break
-            if num_peers < min_peers:
-                log.debug('missing peers', num_peers=num_peers,
-                          min_peers=min_peers, known=len(kademlia_proto.routing))
-                nodeid = kademlia.random_nodeid()
-                kademlia_proto.find_node(nodeid)  # fixme, should be a task
-                gevent.sleep(self.discovery_delay)  # wait for results
-                neighbours = kademlia_proto.routing.neighbours(nodeid, 2)
-                if not neighbours:
-                    gevent.sleep(self.connect_loop_delay)
-                    continue
-                node = random.choice(neighbours)
-                log.debug('connecting random', node=node)
-                local_pubkey = crypto.privtopub(self.config['node']['privkey_hex'].decode('hex'))
-                if node.pubkey == local_pubkey:
-                    continue
-                if node.pubkey in [p.remote_pubkey for p in self.peers]:
-                    continue
-                self.connect((node.address.ip, node.address.tcp_port), node.pubkey)
-            gevent.sleep(self.connect_loop_delay)
-            size = len(kademlia_proto.routing)
-            log.info('neighbours: {}'.format(size))
-            if size > 10:
-                break
-        log.info('more than 10 neighbours. routing table ready. quitting normal discovery')
-        log.info('peer: {}'.format(self.num_peers()))
-        greenlets = []
-        for node in kademlia_proto.routing:
-            if node.pubkey == local_pubkey:
-                continue
-            if node.pubkey in [p.remote_pubkey for p in self.peers]:
-                continue
-            greenlets.append(gevent.spawn(self.connect, (node.address.ip, node.address.tcp_port), node.pubkey))
-        gevent.joinall(greenlets)
-        log.info('peer: {}'.format(self.num_peers()))
+            nodeid = kademlia.random_nodeid()
+            kademlia_proto.find_node(nodeid)
+            gevent.sleep(self.discovery_delay)
+#            log.info('connecting random', node=node)
+#            self.connect((node.address.ip, node.address.tcp_port), node.pubkey)
+            num_peers, num_nodes = self.num_peers(), len(kademlia_proto.routing)
+            log.info('{} nodes, {} peers'.format(num_nodes, num_peers))
+        gevent.sleep(self.connect_loop_delay)
+        self.t.cancel()
         evt = gevent.event.Event()
         evt.wait()
 
     def stop(self):
         log.info('stopping peermanager')
         self.server.stop()
+        self.t.cancel()
         for peer in self.peers:
             peer.stop()
         super(PeerManager, self).stop()
