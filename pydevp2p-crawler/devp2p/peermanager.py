@@ -53,9 +53,10 @@ class PeerManager(WiredService):
     discovery_delay = 0.5
     routing_refresh_timer = 600
     t = None
+    init_load = True
     result_dir = "/results"
-    prev_routing_table = "routing-table_170107-110303.csv"
-    prev_peers = ""
+    prev_routing_table = "routing-table_170108-095214.csv"
+    prev_peers = "peers_170108-021550.csv"
 
     def __init__(self, app):
         log.info('PeerManager init')
@@ -165,18 +166,6 @@ class PeerManager(WiredService):
         self._bootstrap()
         super(PeerManager, self).start()
         gevent.spawn_later(0.000001, self._discovery_loop)
-       # log.info('peer: '.format(self.num_peers()))
-       # greenlets = []
-       # local_pubkey = crypto.privtopub(self.config['node']['privkey_hex'].decode('hex'))
-       # kademlia_proto = self.app.services.discovery.protocol.kademlia
-       # for node in kademlia_proto.routing:
-       #     if node.pubkey == local_pubkey:
-       #         continue
-       #     if node.pubkey in [p.remote_pubkey for p in self.peers]:
-       #         continue
-       #     greenlets.append(gevent.spawn(self.connect, (node.address.ip, node.address.tcp_port), node.pubkey))
-       # gevent.joinall(greenlets)
-       # log.info('peer: '.format(self.num_peers()))
 
     def _on_new_connection(self, connection, address):
         log.debug('incoming connection', connection=connection)
@@ -199,9 +188,12 @@ class PeerManager(WiredService):
             current_time = "{:%y%m%d-%H%M%S}".format(datetime.datetime.now())
             filename = "{}/{}".format(self.result_dir, self.prev_routing_table)
             log.info('loading previous routing table', file=filename, timestamp=current_time)
+            greenlets = []
             with open(filename, "r") as file_obj:
                 csvfile = csv.reader(file_obj, delimiter=',')
                 for row in csvfile:
+                    if len(row) != 6:
+                        continue
                     pubkey = row[0].decode('hex')
                     ip = row[1]
                     tcp_port = int(row[2])
@@ -214,13 +206,35 @@ class PeerManager(WiredService):
                     node.reputation = reputation
                     node.rlpx_version = rlpx_version
                     routing.add_node(node)
-            log.info('previous routing table loaded', size=len(routing))
+                    greenlets.append(gevent.spawn(self.connect, (ip, tcp_port), pubkey))
+                gevent.joinall(greenlets)
+                gevent.sleep(self.connect_loop_delay)
+            log.info('previous routing table loaded', num_nodes=len(routing))
 
         except AttributeError:
             # TODO: Is this the correct thing to do here?
             log.error("Discovery service not available. Failed to load routing table.")
 
-    def save_data(self):
+    def connect_prev_peers(self):
+        current_time = "{:%y%m%d-%H%M%S}".format(datetime.datetime.now())
+        filename = "{}/{}".format(self.result_dir, self.prev_peers)
+        log.info('connecting previous peers', file=filename, timestamp=current_time)
+        greenlets = []
+        with open(filename, "r") as file_obj:
+            csvfile = csv.reader(file_obj, delimiter=',')
+            for row in csvfile:
+                if len(row) != 8:
+                    continue
+                pubkey = row[0].decode('hex')
+                ip = row[1]
+                tcp_port = int(row[2])
+                greenlets.append(gevent.spawn(self.connect, (ip, tcp_port), pubkey))
+            gevent.joinall(greenlets)
+            gevent.sleep(self.connect_loop_delay)
+        log.info('previous peers contacted', num_peers=self.num_peers())
+
+    def save_routing_table(self):
+        nodes = None
         try:
             kademlia_proto = self.app.services.discovery.protocol.kademlia
             nodes = set(kademlia_proto.routing)
@@ -228,25 +242,22 @@ class PeerManager(WiredService):
             filename = "{}/routing-table_{}.csv".format(self.result_dir, current_time)
             log.info('saving routing table', file=filename, timestamp=current_time)
             file_obj = open(filename, "w")
-            for node in nodes:
-                file_obj.write("{},{},{},{},{},{}\n".format(node.pubkey.encode('hex'), node.address.ip, node.address.tcp_port, node.address.udp_port, node.reputation, node.rlpx_version))
-            file_obj.close()
-
             greenlets = []
             for node in nodes:
+                file_obj.write("{},{},{},{},{},{}\n".format(node.pubkey.encode('hex'), node.address.ip, node.address.tcp_port, node.address.udp_port, node.reputation, node.rlpx_version))
                 if node.pubkey in [p.remote_pubkey for p in self.peers]:
                     continue
+#                self.connect((node.address.ip, node.address.tcp_port), node.pubkey)
+#                gevent.sleep(self.connect_loop_delay)
                 greenlets.append(gevent.spawn(self.connect, (node.address.ip, node.address.tcp_port), node.pubkey))
             gevent.joinall(greenlets)
             gevent.sleep(self.connect_loop_delay)
+            file_obj.close()
 
-            self.save_peers()
-
-            self.t = threading.Timer(self.routing_refresh_timer, self.save_data)
-            self.t.start()
         except AttributeError:
             # TODO: Is this the correct thing to do here?
             log.error("Discovery service not available. Failed to save routing table.")
+        return nodes
 
     def save_peers(self):
         current_time = "{:%y%m%d-%H%M%S}".format(datetime.datetime.now())
@@ -263,8 +274,18 @@ class PeerManager(WiredService):
                 continue 
         file_obj.close()
 
+    def save_data(self):
+        if self.init_load:
+            self.init_load = False
+        else:
+            nodes = self.save_routing_table()
+            self.save_peers()
+        self.t = threading.Timer(self.routing_refresh_timer, self.save_data)
+        self.t.start()
+
     def _discovery_loop(self):
         self.load_routing_table()
+        self.connect_prev_peers()
         log.info('waiting for bootstrap')
         gevent.sleep(self.discovery_delay)
 
@@ -281,11 +302,18 @@ class PeerManager(WiredService):
             nodeid = kademlia.random_nodeid()
             kademlia_proto.find_node(nodeid)
             gevent.sleep(self.discovery_delay)
-#            log.info('connecting random', node=node)
-#            self.connect((node.address.ip, node.address.tcp_port), node.pubkey)
+            current_nodes = set(kademlia_proto.routing)
+            new_nodes = current_nodes - nodes
+            nodes = new_nodes
+            greenlets = []
+            for node in new_nodes:
+                if node.pubkey in [p.remote_pubkey for p in self.peers]:
+                    continue
+                greenlets.append(gevent.spawn(self.connect, (node.address.ip, node.address.tcp_port), node.pubkey))
+            gevent.joinall(greenlets)
+            gevent.sleep(self.connect_loop_delay)
             num_peers, num_nodes = self.num_peers(), len(kademlia_proto.routing)
             log.info('{} nodes, {} peers'.format(num_nodes, num_peers))
-        gevent.sleep(self.connect_loop_delay)
         self.t.cancel()
         evt = gevent.event.Event()
         evt.wait()
