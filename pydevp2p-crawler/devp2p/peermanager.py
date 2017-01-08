@@ -55,8 +55,11 @@ class PeerManager(WiredService):
     t = None
     init_load = True
     result_dir = "/results"
-    prev_routing_table = "routing-table_170108-095214.csv"
+    prev_routing_table = "routing-table_170108-145306.csv"
     prev_peers = "peers_170108-021550.csv"
+    json_file = None
+    pubkey_list = []
+    pubkey_refresh_timer = 14400
 
     def __init__(self, app):
         log.info('PeerManager init')
@@ -163,6 +166,7 @@ class PeerManager(WiredService):
         log.info('starting listener', addr=self.listen_addr)
         self.server.set_handle(self._on_new_connection)
         self.server.start()
+        self.clear_pubkey_list()
         self._bootstrap()
         super(PeerManager, self).start()
         gevent.spawn_later(0.000001, self._discovery_loop)
@@ -283,6 +287,16 @@ class PeerManager(WiredService):
         self.t = threading.Timer(self.routing_refresh_timer, self.save_data)
         self.t.start()
 
+    def clear_pubkey_list(self):
+        if self.json_file:
+            self.json_file.close()
+        self.pubkey_list = []
+        current_time = "{:%y%m%d-%H%M%S}".format(datetime.datetime.now())
+        filename = "{}/hello-peers_{}.json".format(self.result_dir, current_time)
+        self.json_file = open(filename, "w")
+        self.pubkey_t = threading.Timer(self.pubkey_refresh_timer, self.clear_pubkey_list)
+        self.pubkey_t.start()
+
     def _discovery_loop(self):
         self.load_routing_table()
         self.connect_prev_peers()
@@ -304,7 +318,7 @@ class PeerManager(WiredService):
             gevent.sleep(self.discovery_delay)
             current_nodes = set(kademlia_proto.routing)
             new_nodes = current_nodes - nodes
-            nodes = new_nodes
+            nodes = current_nodes
             greenlets = []
             for node in new_nodes:
                 if node.pubkey in [p.remote_pubkey for p in self.peers]:
@@ -322,6 +336,7 @@ class PeerManager(WiredService):
         log.info('stopping peermanager')
         self.server.stop()
         self.t.cancel()
+        self.pubkey_t.cancel()
         for peer in self.peers:
             peer.stop()
         super(PeerManager, self).stop()

@@ -11,6 +11,7 @@ from crypto import ECIESDecryptionError
 import slogging
 import gevent.socket
 import rlpxcipher
+import json
 
 log = slogging.get_logger('p2p.peer')
 
@@ -148,6 +149,26 @@ class Peer(gevent.Greenlet):
                     log.debug('wrong version', service=proto.name, local_version=proto.version,
                               remote_version=remote_services[proto.name])
                     self.report_error('wrong version')
+        json_file = self.peermanager.json_file
+        pubkey = self.remote_pubkey.encode('hex')
+        if pubkey not in self.peermanager.pubkey_list:
+            self.peermanager.pubkey_list.append(pubkey)
+            peer_dict = {
+                "capabilities": [{"name": name, "version": version} for name, version in self.capabilities],
+                "connection": None,
+                "dead": self.dead,
+                "hello_received": self.hello_received,
+                "ip": self.ip_port[0],
+                "is_stopped": self.is_stopped,
+                "mux": None,
+                "offset_based_dispatch": self.offset_based_dispatch,
+                "port": self.ip_port[1],
+                "remote_client_version": self.remote_client_version,
+                "remote_pubkey": self.remote_pubkey.encode('hex'),
+                "remote_pubkey_available": self.remote_pubkey_available,
+                "started": self.started
+            }
+            json_file.write("{}\n".format(json.dumps(peer_dict)))
 
     @property
     def capabilities(self):
