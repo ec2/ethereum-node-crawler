@@ -9,7 +9,7 @@
 ##
 ## Run with:
 # 
-# docker run -it --name pyethapp-crawler -p 30303:30303 -p 30303:30303/udp pyethapp-crawler
+# docker run -it -p 30303:30303 -p 30303:30303/udp pyethapp-crawler
 #
 ## Data volume
 #
@@ -48,8 +48,10 @@ RUN sed -i 's/PROTOCOL_SSLv3/PROTOCOL_SSLv23/g' /usr/local/lib/python2.7/site-pa
 
 RUN mkdir /data
 
+RUN mkdir /results
+
 EXPOSE 4000
 EXPOSE 30303
 EXPOSE 30303/udp
 
-VOLUME /data
+VOLUME ["/data", "/results"]
