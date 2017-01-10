@@ -168,7 +168,7 @@ class Peer(gevent.Greenlet):
                 "remote_pubkey_available": self.remote_pubkey_available,
                 "started": self.started
             }
-            json_file.write("{}\n".format(json.dumps(peer_dict)))
+            #json_file.write("{}\n".format(json.dumps(peer_dict)))
 
     @property
     def capabilities(self):
