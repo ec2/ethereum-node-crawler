@@ -28,8 +28,41 @@ log = slogging.get_logger('p2p')
 
 from collections import defaultdict
 
+class ETHProtocol(BaseProtocol):
+
+    """
+    DEV Ethereum Wire Protocol
+    https://github.com/ethereum/wiki/wiki/Ethereum-Wire-Protocol
+    https://github.com/ethereum/go-ethereum/blob/develop/eth/protocol.go#L15
+    """
+    protocol_id = 1
+    network_id = 0
+    max_cmd_id = 15  # FIXME
+    name = 'eth'
+    version = 63
+
+    max_getblocks_count = 64
+    max_getblockhashes_count = 2048
+
+    def __init__(self, peer, service):
+        # required by P2PProtocol
+        self.config = peer.config
+        BaseProtocol.__init__(self, peer, service)
+
+class ChainService(WiredService):
+    # required by BaseService
+    name = 'chain'
+
+    # required by WiredService
+    wire_protocol = ETHProtocol
+
+    def __init__(self):
+        pass
+
+
+
 class NullApp():
-    services = {}
+    services = {"eth": ChainService()}
     config = {'node':
               {'privkey_hex': 'b3b9736ba5e4b9d0f85231291316c7fd82bde4ae80bb7ca98175cf6d11c0c4eb'},
               'result_dir': './results/',
@@ -123,6 +156,7 @@ class PeerManager(WiredService):
 
     @property
     def wired_services(self):
+        print 'wired_services', self.app.services
         return [s for s in self.app.services.values() if isinstance(s, WiredService)]
 
     def broadcast(self, protocol, command_name, args=[], kargs={},
@@ -218,12 +252,12 @@ class PeerManager(WiredService):
 
             # HARDCODED winterfell node
             if 1:
-                pubkey = "5fbca9b7b103c1e5cb1bab548980bf9de7ac559fc0ad61a0fa7fe96350e6cddf75bdd85e9070d3f45a97781532b99fc4bba4a3c4873329f1dce7d1a3f8c3ce0b".decode('hex')
-                ip = '72.36.89.11'
+                pubkey = "77154628bb8658313705f1117457aa29b5141d4520c94d87e446a277a4ea6d360521e791bdfa0b5032c2caa0b07692440bdce700947420e1cc46bcac87b4b054".decode('hex')
+                ip = '54.157.204.171'
                 tcp_port = 30303
                 greenlets.append(gevent.spawn(self.connect, (ip, tcp_port), pubkey))
 
-            if 1:
+            if 0:
               with open(filename, "r") as file_obj:
                 csvfile = csv.reader(file_obj, delimiter=',')
                 for row in list(csvfile)[:10]:
