@@ -4,18 +4,18 @@
 ##
 ## Build with:
 #
-#  docker build -t pyethapp-crawler .
+#  docker build -t pyethcrawler .
 #
 ##
 ## Run with:
 # 
-# docker run -it -p 30303:30303 -p 30303:30303/udp pyethapp-crawler
+# docker run -it -p 30303:30303 -p 30303:30303/udp pyethcrawler
 #
 ## Data volume
 #
 # To preserve data across container recreations mount a volume at /data e.g:
 #
-# docker run -v /somewhere/on/the/host:/data pyethapp-crawler
+# docker run -v /somewhere/on/the/host:/data pyethcrawler
 #
 
 FROM python:2.7.11
