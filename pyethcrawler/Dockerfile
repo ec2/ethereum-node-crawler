@@ -33,6 +33,10 @@ RUN git clone https://github.com/ethereum/pydevp2p /apps/pydevp2p
 WORKDIR /apps/pydevp2p
 RUN pip install -e .
 
+RUN git clone https://github.com/ethereum/pyethereum /apps/pyethereum
+WORKDIR /apps/pyethereum
+RUN pip install -e .
+
 RUN git clone https://github.com/simonsk/ethereum-node-crawler /apps/ethereum-node-crawler
 
 WORKDIR /

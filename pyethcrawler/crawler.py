@@ -12,20 +12,19 @@ from collections import defaultdict
 import gevent
 from gevent.server import StreamServer
 from gevent.socket import create_connection, timeout
-import kademlia
-import crypto
-import utils
-from devp2p.app import BaseApp
 from devp2p import __version__
-from devp2p import discovery
-from discovery import NodeDiscovery
-from service import BaseService
-from peer import Peer
+from devp2p import crypto
+from devp2p import kademlia
+from devp2p import slogging
+from devp2p import utils
+from devp2p.app import BaseApp
+from devp2p.discovery import NodeDiscovery
+from devp2p.peer import Peer
+from devp2p.protocol import BaseProtocol
+from devp2p.p2p_protocol import P2PProtocol
+from devp2p.service import BaseService
 from peermanager2 import PeerManager
-from protocol import BaseProtocol
-from p2p_protocol import P2PProtocol
 from testcrawler import ChainService
-import slogging
 
 log = slogging.get_logger('app')
 slogging.configure(config_string=':debug')

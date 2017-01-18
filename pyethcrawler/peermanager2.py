@@ -8,15 +8,15 @@ import threading
 import csv
 from gevent.server import StreamServer
 from gevent.socket import create_connection, timeout
-from service import WiredService
-from protocol import BaseProtocol
-from p2p_protocol import P2PProtocol
-import kademlia
-from peer import Peer
-import crypto
-import utils
+from devp2p.service import WiredService
+from devp2p.protocol import BaseProtocol
+from devp2p.p2p_protocol import P2PProtocol
+from devp2p import kademlia
+from devp2p.peer import Peer
+from devp2p import crypto
+from devp2p import utils
 from devp2p import discovery
-import slogging
+from devp2p import slogging
 log = slogging.get_logger('p2p.peermgr')
 
 
