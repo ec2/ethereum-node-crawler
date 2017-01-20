@@ -1,27 +1,11 @@
-import random
-import socket
-import atexit
-import time
-import datetime
-import threading
-import csv
-import sys
 import signal
+import sys
 from UserDict import IterableUserDict
-from collections import defaultdict
 import gevent
-from gevent.server import StreamServer
-from gevent.socket import create_connection, timeout
-from devp2p import __version__
 from devp2p import crypto
-from devp2p import kademlia
 from devp2p import slogging
 from devp2p import utils
-from devp2p.app import BaseApp
-from devp2p.discovery import NodeDiscovery
-from devp2p.protocol import BaseProtocol
-from devp2p.p2p_protocol import P2PProtocol
-from devp2p.service import BaseService, WiredService
+from devp2p.service import BaseService
 from peercrawler import PeerCrawler
 
 log = slogging.get_logger('app')
@@ -33,42 +17,13 @@ if root_logger.handlers == []:
 #log = slogging.get_logger('p2p')
 
 
-class ETHProtocol(BaseProtocol):
-    protocol_id = 1
-    network_id = 1
-    max_cmd_id = 17  # FIXME
-    name = 'eth'
-    version = 63
-
-    max_getblocks_count = 64
-    max_getblockhashes_count = 2048
-
-    def __init__(self, version):
-        if version in [61, 62]:
-            self.max_cmd_id = 8
-            self.version = version
-
-
-class ChainService(WiredService):
-    # required by BaseService
-    name = 'chain'
-
-    # required by WiredService
-    wire_protocol = ETHProtocol
-
-    def __init__(self, version):
-        if version in [61, 62]:
-            self.wire_protocol.max_cmd_id = 8
-            self.wire_protocol.version = version
-
-
 class BaseApp(object):
     client_name = 'pyethcrawler'
-    client_version = '%s/%s/%s' % (__version__, sys.platform,
+    client_version = '0.1/%s/%s' % (sys.platform,
                                    'py%d.%d.%d' % sys.version_info[:3])
     client_version_string = '%s/v%s' % (client_name, client_version)
     start_console = False
-    default_config = dict(BaseApp.default_config)
+    default_config = {}
     default_config['client_version_string'] = client_version_string
     default_config['result_dir'] = ''
     default_config['prev_routing_table'] = '/results/routing-table_170109-084715.csv'
@@ -120,16 +75,11 @@ def main():
     print(app.config)
 
     # register services
-    # NodeDiscovery.register_with_app(app)
     PeerCrawler.register_with_app(app)
     print(app.services)
 
     # start app
     app.start()
-
-#    app.services['eth61'] = ChainService(61)
-#    app.services['eth62'] = ChainService(62)
-#    app.services['eth63'] = ChainService(63)
 
     # wait for interupt
     evt = gevent.event.Event()

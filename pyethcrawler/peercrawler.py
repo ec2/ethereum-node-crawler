@@ -90,7 +90,7 @@ class PeerCrawler(PeerManager):
     required_services = []
     wire_protocol = P2PProtocol
     default_config = dict(p2p=dict(listen_port=30303,listen_host='0.0.0.0'),
-                          log_disconnects=True)
+                          log_disconnects=False)
 
     connect_timeout = 2.
     connect_loop_delay = 0.1
@@ -143,16 +143,15 @@ class PeerCrawler(PeerManager):
         csvfile = None
         file_obj.close()
 
-        s = 0
-
 #        while not self.is_stopped:
-        while s != 3:
-            for pubkey, ip, tcp_port in nodes:
-                greenlets.append(gevent.spawn(self.connect, (ip, tcp_port), pubkey))
-            gevent.joinall(greenlets)
-            gevent.sleep(self.connect_loop_delay)
+        for pubkey, ip, tcp_port in nodes:
+            greenlets.append(gevent.spawn(self.connect, (ip, tcp_port), pubkey))
+        gevent.joinall(greenlets)
+        gevent.sleep(self.connect_loop_delay)
+        for i in range(3):
             log.info('============== ', peers=self.num_peers())
-            s += 1
+            log.info('peer list', peers=len(self.peers))
+            time.sleep(5)
         evt = gevent.event.Event()
         evt.wait()
 
