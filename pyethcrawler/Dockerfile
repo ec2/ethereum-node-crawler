@@ -20,10 +20,15 @@
 
 FROM python:2.7.11
 
+RUN echo "mysql-server-5.5 mysql-server/root_password password  " | debconf-set-selections
+RUN echo "mysql-server-5.5 mysql-server/root_password_again password  " | debconf-set-selections
+
 RUN apt-get update
-RUN apt-get install -y git-core vim
+RUN apt-get install -q -y git-core vim mysql-server
 
 RUN pip install --upgrade pip
+
+RUN pip install pymysql
 
 RUN git clone https://github.com/ethereum/pyrlp /apps/pyrlp
 WORKDIR /apps/pyrlp

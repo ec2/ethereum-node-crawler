@@ -4,8 +4,8 @@ import pymysql
 
 
 host = '127.0.0.1'
-user = 'simon'
-password = ''
+user = 'root'
+password = ' '
 db = 'main'
 
 
