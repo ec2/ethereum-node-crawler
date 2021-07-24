@@ -26,23 +26,26 @@ RUN echo "mysql-server-5.5 mysql-server/root_password_again password  " | debcon
 RUN apt-get update
 RUN apt-get install -q -y git-core vim mysql-server
 
-RUN pip install --upgrade pip
-
+RUN pip install --upgrade "pip < 21.0"
 RUN pip install pymysql
+RUN sh -c '/bin/echo -e "y" | apt install pandoc'
 
-RUN git clone https://github.com/ethereum/pyrlp /apps/pyrlp
+RUN pip install setuptools-markdown
+RUN git clone -b v0.6.0 https://github.com/ethereum/pyrlp /apps/pyrlp
 WORKDIR /apps/pyrlp
 RUN pip install -e .
 
+RUN pip install hgtools
+RUN pip install pytest-runner==2.7
 RUN git clone https://github.com/ethereum/pydevp2p /apps/pydevp2p
 WORKDIR /apps/pydevp2p
 RUN pip install -e .
 
-RUN git clone https://github.com/ethereum/pyethereum /apps/pyethereum
+RUN git clone -b master https://github.com/ethereum/pyethereum /apps/pyethereum
 WORKDIR /apps/pyethereum
 RUN pip install -e .
 
-RUN git clone https://github.com/simonsk/ethereum-node-crawler /apps/ethereum-node-crawler
+RUN git clone https://github.com/ec2/ethereum-node-crawler /apps/ethereum-node-crawler
 
 WORKDIR /
 
